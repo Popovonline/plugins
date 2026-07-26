@@ -24,7 +24,7 @@ Prereq: authenticate with GitHub CLI once, then confirm with `gh auth status`. R
 
 ## Quick start
 
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
+- `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
 - Add `--json` if you want machine-friendly output for summarization.
 
 ## Workflow
@@ -38,11 +38,13 @@ Prereq: authenticate with GitHub CLI once, then confirm with `gh auth status`. R
    - When repo and PR are known, fetch PR metadata and patch context through the GitHub app from this plugin.
 3. Inspect failing checks (GitHub Actions only).
    - Preferred: run the bundled script (handles gh field drift and job-log fallbacks):
-     - `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
+     - `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
      - Add `--json` for machine-friendly output.
    - Manual fallback:
      - `gh pr checks <pr> --json name,state,bucket,link,startedAt,completedAt,workflow`
-       - If a field is rejected, rerun with the available fields reported by `gh`.
+     - If a field is rejected, rerun with the available fields reported by `gh`.
+     - If `gh pr checks` does not support `--json`, use
+       `gh pr view <pr> --json statusCheckRollup`.
      - For each failing check, extract the run id from `detailsUrl` and run:
        - `gh run view <run_id> --json name,workflowName,conclusion,status,url,event,headBranch,headSha`
        - `gh run view <run_id> --log`
@@ -70,9 +72,9 @@ Prereq: authenticate with GitHub CLI once, then confirm with `gh auth status`. R
 Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet. Exits non-zero when failures remain so it can be used in automation.
 
 Usage examples:
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "123"`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "https://github.com/org/repo/pull/123" --json`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --max-lines 200 --context 40`
+- `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "123"`
+- `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "https://github.com/org/repo/pull/123" --json`
+- `python3 "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --max-lines 200 --context 40`
 
 ## Guardrails
 
