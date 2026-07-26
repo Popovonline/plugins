@@ -210,6 +210,8 @@ def fetch_checks(pr_value: str, repo_root: Path) -> list[dict[str, Any]] | None:
                 message = (result.stderr or result.stdout or "").strip()
                 print(message or "Error: gh pr checks failed.", file=sys.stderr)
                 return None
+        elif is_unsupported_json_flag(message):
+            return fetch_checks_from_status_rollup(pr_value, repo_root)
         else:
             print(message or "Error: gh pr checks failed.", file=sys.stderr)
             return None
@@ -222,6 +224,47 @@ def fetch_checks(pr_value: str, repo_root: Path) -> list[dict[str, Any]] | None:
         print("Error: unexpected checks JSON shape.", file=sys.stderr)
         return None
     return data
+
+
+def fetch_checks_from_status_rollup(
+    pr_value: str,
+    repo_root: Path,
+) -> list[dict[str, Any]] | None:
+    result = run_gh_command(
+        ["pr", "view", pr_value, "--json", "statusCheckRollup"],
+        cwd=repo_root,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or "").strip()
+        print(message or "Error: unable to fetch PR status rollup.", file=sys.stderr)
+        return None
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        print("Error: unable to parse PR status rollup JSON.", file=sys.stderr)
+        return None
+    rollup = payload.get("statusCheckRollup") if isinstance(payload, dict) else None
+    if not isinstance(rollup, list):
+        print("Error: unexpected PR status rollup JSON shape.", file=sys.stderr)
+        return None
+
+    checks: list[dict[str, Any]] = []
+    for item in rollup:
+        if not isinstance(item, dict):
+            print("Error: unexpected check entry in PR status rollup.", file=sys.stderr)
+            return None
+        checks.append(
+            {
+                "name": item.get("name") or item.get("context") or "",
+                "state": item.get("state") or item.get("status") or "",
+                "conclusion": item.get("conclusion") or "",
+                "detailsUrl": item.get("detailsUrl") or item.get("targetUrl") or "",
+                "startedAt": item.get("startedAt") or "",
+                "completedAt": item.get("completedAt") or "",
+                "workflow": item.get("workflowName") or "",
+            }
+        )
+    return checks
 
 
 def is_failing(check: dict[str, Any]) -> bool:
@@ -413,6 +456,13 @@ def parse_available_fields(message: str) -> list[str]:
             continue
         fields.append(field)
     return fields
+
+
+def is_unsupported_json_flag(message: str) -> bool:
+    lowered = message.lower()
+    return "--json" in lowered and (
+        "unknown flag" in lowered or "unknown shorthand flag" in lowered
+    )
 
 
 def is_log_pending_message(message: str) -> bool:
